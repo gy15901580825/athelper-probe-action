@@ -1,0 +1,53 @@
+# .github/workflows/test.yml
+name: action-self-test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    permissions:
+      security-events: write
+      checks: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install aiohttp
+      - name: Start stub OpenAI server in background
+        run: |
+          python tests/stub_openai_server.py &
+          STUB_PID=$!
+          echo "STUB_PID=$STUB_PID" >> $GITHUB_ENV
+      - name: Wait for stub server
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -s -X POST http://127.0.0.1:8765/v1/chat/completions \
+                  -H "Content-Type: application/json" \
+                  -d '{"messages":[{"role":"user","content":"hi"}],"model":"stub"}' >/dev/null; then
+              echo "stub server ready"
+              break
+            fi
+            sleep 2
+          done
+      - name: Invoke composite Action against stub
+        uses: ./
+        with:
+          api-token: 'self-test-fake-token'
+          target-config: |
+            {"kind":"openai_compat","endpoint_url":"http://127.0.0.1:8765/v1/chat/completions","model":"gpt-stub","api_key":"k"}
+          probe-ids: 'owasp_07_system_prompt_leakage'
+          threshold: 'warn'
+        # Fake api-token: ATHelper API will reject; we only assert the action's
+        # structural steps run (binary install + composite invocation).
+        continue-on-error: true
+      - name: Assert action structure ran
+        run: |
+          if test -x /usr/local/bin/athelper-probe; then
+            echo "athelper-probe binary installed at /usr/local/bin"
+          else
+            echo "athelper-probe binary NOT installed" && exit 1
+          fi
+          echo "Self-test PASS (structural)"

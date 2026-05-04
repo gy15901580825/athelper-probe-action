@@ -1,0 +1,54 @@
+# .github/workflows/athelper-probe-reusable.yml
+name: athelper-probe-reusable
+
+on:
+  workflow_call:
+    inputs:
+      target-config:
+        required: true
+        type: string
+        description: 'Path to target.json or inline JSON'
+      probe-ids:
+        required: false
+        type: string
+        default: ''
+      threshold:
+        required: false
+        type: string
+        default: 'warn'
+      per-run-cap:
+        required: false
+        type: string
+        default: '0.50'
+      cli-version:
+        required: false
+        type: string
+        default: 'v0.1.0'
+    secrets:
+      api-token:
+        required: true
+        description: 'ATHELPER_API_TOKEN'
+
+jobs:
+  redteam:
+    runs-on: ubuntu-22.04
+    permissions:
+      security-events: write   # for upload-sarif (code-scanning)
+      checks: write            # for github-script's checks.create
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gy15901580825/athelper-probe-action@v1
+        with:
+          api-token: ${{ secrets.api-token }}
+          target-config: ${{ inputs.target-config }}
+          probe-ids: ${{ inputs.probe-ids }}
+          threshold: ${{ inputs.threshold }}
+          per-run-cap: ${{ inputs.per-run-cap }}
+          cli-version: ${{ inputs.cli-version }}
+      - name: Upload SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: athelper-sarif
+          path: report.sarif
