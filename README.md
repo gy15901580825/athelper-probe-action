@@ -5,7 +5,7 @@ GitHub Action wrapping the [ATHelper](https://www.at-helper.com) red-team CLI fo
 ## Quick start
 
 ```yaml
-- uses: gy15901580825/athelper-probe-action@v1
+- uses: gy15901580825/athelper-probe-action@v2
   with:
     api-token: ${{ secrets.ATHELPER_API_TOKEN }}
     target-config: |
@@ -24,10 +24,10 @@ GitHub Action wrapping the [ATHelper](https://www.at-helper.com) red-team CLI fo
 |---|---|---|---|
 | `api-token` | yes | — | ATHelper API token (`secrets.ATHELPER_API_TOKEN`) |
 | `target-config` | yes | — | Path to `target.json` or inline JSON describing the target agent |
-| `probe-ids` | no | (server default) | Comma-separated probe IDs |
+| `probes` | no | `all` | Comma-separated probe IDs, or `all` for the full library |
 | `threshold` | no | `warn` | `warn` / `block-on-critical` / `block-on-high` |
 | `per-run-cap` | no | `0.50` | Per-run USD cost cap |
-| `cli-version` | no | `v0.1.0` | athelper-probe CLI release tag |
+| `cli-version` | no | `v0.1.1` | athelper-probe CLI release tag |
 
 ## Target schema
 
@@ -55,6 +55,18 @@ Full field reference per kind: [ATHelper docs](https://www.at-helper.com/docs/re
 - `warn` (default) — never fails the PR; surfaces counts in summary
 - `block-on-critical` — fails PR if any finding has severity `critical`
 - `block-on-high` — fails PR if any finding has severity `high` or `critical`
+
+## Migrating from v1
+
+`v1` shipped against CLI `v0.1.0` and was broken by the `v0.1.1` CLI flag rename. `v2` is the working release.
+
+Breaking changes vs `v1`:
+
+- `probe-ids` input renamed to `probes`. Default is now `all` (CLI v0.1.1 requires the flag).
+- `cli-version` default bumped to `v0.1.1`.
+- The CLI binary installs to `$RUNNER_TEMP/athelper-bin` instead of `/usr/local/bin` (no `sudo` needed).
+
+Upgrade by changing `@v1` → `@v2` and renaming the input.
 
 ## License
 
