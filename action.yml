@@ -11,10 +11,10 @@ inputs:
   target-config:
     required: true
     description: 'Path to target.json or inline JSON object describing the target'
-  probe-ids:
+  probes:
     required: false
-    default: ''
-    description: 'Comma-separated probe IDs (default: server picks all #1 + #2)'
+    default: 'all'
+    description: "Comma-separated probe IDs or 'all' for the full library"
   threshold:
     required: false
     default: 'warn'
@@ -25,7 +25,7 @@ inputs:
     description: 'Per-run USD cost cap'
   cli-version:
     required: false
-    default: 'v0.1.0'
+    default: 'v0.1.1'
     description: 'athelper-probe CLI version tag'
 runs:
   using: composite
@@ -33,20 +33,27 @@ runs:
     - name: Install athelper-probe
       shell: bash
       run: |
+        set -euo pipefail
         VERSION="${{ inputs.cli-version }}"
-        curl -sSL "https://github.com/gy15901580825/at_helper_cli/releases/download/${VERSION}/athelper-probe-linux-x86_64" -o /usr/local/bin/athelper-probe
-        chmod +x /usr/local/bin/athelper-probe
-        athelper-probe --version || true
+        BIN_DIR="$RUNNER_TEMP/athelper-bin"
+        mkdir -p "$BIN_DIR"
+        curl -fsSL "https://github.com/gy15901580825/at_helper_cli/releases/download/${VERSION}/athelper-probe-linux-x86_64" -o "$BIN_DIR/athelper-probe"
+        chmod +x "$BIN_DIR/athelper-probe"
+        echo "$BIN_DIR" >> "$GITHUB_PATH"
+        "$BIN_DIR/athelper-probe" --help > /dev/null
     - name: Run probes
       shell: bash
       env:
         ATHELPER_API_TOKEN: ${{ inputs.api-token }}
       run: |
-        ARGS=(run --target "${{ inputs.target-config }}" --per-run-cap "${{ inputs.per-run-cap }}" --output report.sarif --format sarif --api-token "${{ inputs.api-token }}")
-        if [ -n "${{ inputs.probe-ids }}" ]; then
-          ARGS+=(--probe-ids "${{ inputs.probe-ids }}")
-        fi
-        athelper-probe "${ARGS[@]}"
+        set -euo pipefail
+        athelper-probe run \
+          --target "${{ inputs.target-config }}" \
+          --probes "${{ inputs.probes }}" \
+          --format sarif \
+          --out report.sarif \
+          --token "${{ inputs.api-token }}" \
+          --per-run-cap "${{ inputs.per-run-cap }}"
     - name: Upload SARIF to code-scanning
       if: always()
       uses: github/codeql-action/upload-sarif@v3
